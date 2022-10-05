@@ -21,7 +21,15 @@ public interface ToDoItemDao {
      * @return A {@link Cursor} of all todoitems in the table
      */
     @Query("SELECT * FROM ToDoItem")
-    Cursor findAll();      /**
+    Cursor findAll();
+
+    /**
+     * select a single todoitem
+     * @return A single todoitem by id
+     */
+    @Query("SELECT * FROM TODOITEM WHERE id = :id")
+    Cursor findItem(long id);
+    /**
      * Delete a todoitem by ID
      * @return A number of todoitems deleted
      */

@@ -1,9 +1,17 @@
 package edu.csce4623.ahnelson.todomvp3.todolistactivity;
 
 import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import java.util.List;
+
+import edu.csce4623.ahnelson.todomvp3.addcreateeditactivity.AddCreateEditActivity;
+import edu.csce4623.ahnelson.todomvp3.alarmnotification.AlarmNotification;
 import edu.csce4623.ahnelson.todomvp3.data.ToDoItem;
 import edu.csce4623.ahnelson.todomvp3.data.ToDoItemRepository;
 import edu.csce4623.ahnelson.todomvp3.data.ToDoListDataSource;
@@ -42,6 +50,9 @@ public class ToDoListPresenter implements ToDoListContract.Presenter {
     }
 
 
+    /**
+     * Create a new ToDoItem to store in the SQLite DB
+     */
     @Override
     public void addNewToDoItem() {
         //Create stub ToDoItem with temporary data
@@ -52,16 +63,23 @@ public class ToDoListPresenter implements ToDoListContract.Presenter {
         item.setDueDate(0);
         item.setId(-1);
         //Show AddEditToDoItemActivity with a create request and temporary item
+        Log.d("ToDoListPresenter", "Add ToDoItem");
         mToDoItemView.showAddEditToDoItem(item,CREATE_TODO_REQUEST);
     }
 
     @Override
     public void showExistingToDoItem(ToDoItem item) {
         //Show AddEditToDoItemActivity with a edit request, passing through an item
-       Log.d("ToDoListPresenter", "TODO: Show Existing ToDoItem");
+       Log.d("ToDoListPresenter", "Show Existing ToDoItem");
        mToDoItemView.showAddEditToDoItem(item,UPDATE_TODO_REQUEST);
     }
 
+    /**
+     * Callback for startActivityForResult handles results that are okay and not okay
+     * @param requestCode -- Integer code identifying whether it was an update or edit call
+     * @param resultCode -- Integer code identifying the result from the Intent
+     * @param item -- ToDoItem returned from the AddEditToDoItemActivity
+     */
     @Override
     public void result(int requestCode, int resultCode, ToDoItem item) {
         if(resultCode == Activity.RESULT_OK){
@@ -92,6 +110,18 @@ public class ToDoListPresenter implements ToDoListContract.Presenter {
     public void updateToDoItem(ToDoItem item){
         Log.d("ToDoListPresenter", "Update Item");
         mToDoItemRepository.saveToDoItem(item);
+    }
+
+    /**
+     * Delete ToDoItem in repository from ToDoITem and reload data
+     * @param id -- ToDoItem ID to be deleted in the ToDoItemRepository
+     */
+    @Override
+    public void deleteToDoItem(Long id) {
+        Log.d("ToDoListPresenter", "Delete Item");
+        mToDoItemRepository.deleteToDoItem(id);
+        mToDoItemView.cancelAlarm(id);
+        loadToDoItems();
     }
 
     /**

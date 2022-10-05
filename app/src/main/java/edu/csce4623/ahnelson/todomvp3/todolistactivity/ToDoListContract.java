@@ -29,6 +29,8 @@ public interface ToDoListContract {
          * @param requestCode - Integer code referencing whether a ToDoItem is being added or edited
          */
         void showAddEditToDoItem(ToDoItem item, int requestCode);
+
+        void cancelAlarm(Long id);
     }
 
     interface Presenter{
@@ -71,6 +73,13 @@ public interface ToDoListContract {
          * @param item -- ToDoItem returned from the AddEditToDoItemActivity
          */
         void result(int requestCode, int resultCode, ToDoItem item);
+
+
+        /**
+         * deleteToDoItem -- Item to be deleted in the dataRepository
+         * @param id - Item ID to be deleted in the dataRepository
+         */
+        void deleteToDoItem(Long id);
     }
 
 }

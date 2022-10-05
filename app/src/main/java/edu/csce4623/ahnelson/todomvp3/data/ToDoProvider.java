@@ -71,6 +71,12 @@ public class ToDoProvider extends ContentProvider {
                 }
                 break;
             case ID_TODOITEM_DATA_ITEM:
+                cursor = toDoItemDao.findItem(ContentUris.parseId(uri));
+                if(getContext() != null){
+                    cursor.setNotificationUri(getContext()
+                            .getContentResolver(),uri);
+                    return cursor;
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unknown URI: " + uri);

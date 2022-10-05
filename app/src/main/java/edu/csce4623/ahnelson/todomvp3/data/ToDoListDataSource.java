@@ -59,4 +59,10 @@ public interface ToDoListDataSource {
      */
     void createToDoItem(@NonNull ToDoItem toDoItem);
 
+    /**
+     * DeleteToDoItem deletes a toDoItem from the database (should be implemented
+     * for remote database)
+     */
+    void deleteToDoItem(@NonNull Long id);
+
 }

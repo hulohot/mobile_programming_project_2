@@ -1,10 +1,12 @@
 package edu.csce4623.ahnelson.todomvp3.todolistactivity;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 
-import androidx.core.app.NotificationCompat;
 import androidx.fragment.app.Fragment;
 
 import android.util.Log;
@@ -12,16 +14,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import edu.csce4623.ahnelson.todomvp3.R;
 import edu.csce4623.ahnelson.todomvp3.addcreateeditactivity.AddCreateEditActivity;
+import edu.csce4623.ahnelson.todomvp3.alarmnotification.AlarmNotification;
 import edu.csce4623.ahnelson.todomvp3.data.ToDoItem;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -75,6 +76,26 @@ public class ToDoListFragment extends Fragment implements ToDoListContract.View 
     }
 
     /**
+     * Cancels the active alarm if it has not gone off yet
+     * @param id
+     */
+    public void cancelAlarm(Long id) {
+        Log.d("ToDoListFragment", "cancelAlarm");
+        AlarmManager almManager;
+
+        // Set Alarm Service
+        if(Build.VERSION.SDK_INT >= 23) {
+            almManager = getContext().getSystemService(AlarmManager.class);
+        } else {
+            almManager = (AlarmManager) getActivity().getSystemService(Context.ALARM_SERVICE);
+        }
+
+        Intent alarmNotificationIntent = new Intent(getContext(), AlarmNotification.class);
+        PendingIntent alarmIntent = PendingIntent.getBroadcast(getContext(), id.intValue(), alarmNotificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        almManager.cancel(alarmIntent);
+    }
+
+    /**
      * onCreateView inflates the fragment, finds the ListView and Button, returns the root view
      *
      * @param inflater
@@ -98,6 +119,7 @@ public class ToDoListFragment extends Fragment implements ToDoListContract.View 
                 mPresenter.addNewToDoItem();
             }
         });
+
         return root;
     }
 
@@ -133,9 +155,9 @@ public class ToDoListFragment extends Fragment implements ToDoListContract.View 
     public void showAddEditToDoItem(ToDoItem item, int requestCode) {
 
         Log.d("Fragment", "ShowAddEditToDoItem");
-//        Toast.makeText(getContext(), "To Be Implemented!", Toast.LENGTH_SHORT).show();
         Intent intent = new Intent(getContext(), AddCreateEditActivity.class);
         intent.putExtra("ToDoItem", item);
+        intent.putExtra("requestCode", requestCode);
         startActivityForResult(intent, requestCode);
     }
 
@@ -164,6 +186,12 @@ public class ToDoListFragment extends Fragment implements ToDoListContract.View 
             Log.d("FRAGMENT", "Open ToDoItem Details");
             //Grab item from the ListView click and pass to presenter
             mPresenter.showExistingToDoItem(clickedToDoItem);
+        }
+
+        @Override
+        public void onToDoItemDeleteClick(ToDoItem clickedToDoItemDelete) {
+            Long id = new Long(clickedToDoItemDelete.getId());
+            mPresenter.deleteToDoItem(id);
         }
     };
 
@@ -243,11 +271,26 @@ public class ToDoListFragment extends Fragment implements ToDoListContract.View 
             TextView contentTV = (TextView) rowView.findViewById(R.id.etItemContent);
             contentTV.setText(toDoItem.getContent());
 
+            // Apply completed info
+            TextView tvCompleted = (TextView) rowView.findViewById(R.id.tvCompleted);
+            if(toDoItem.getCompleted()) {
+                tvCompleted.setText("Complete");
+            } else {
+                tvCompleted.setText("Not Complete");
+            }
+
             rowView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
                     //Set onItemClick listener
                     mItemListener.onToDoItemClick(toDoItem);
+                }
+            });
+
+            rowView.findViewById(R.id.btnDelete).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    mItemListener.onToDoItemDeleteClick(toDoItem);
                 }
             });
             return rowView;
@@ -256,5 +299,6 @@ public class ToDoListFragment extends Fragment implements ToDoListContract.View 
 
     public interface ToDoItemsListener {
         void onToDoItemClick(ToDoItem clickedToDoItem);
+        void onToDoItemDeleteClick(ToDoItem clickedToDoItemDelete);
     }
 }

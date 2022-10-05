@@ -53,59 +53,65 @@ public class AddCreateEditActivity extends AppCompatActivity {
         etItemContent = findViewById(R.id.etItemBody);
         tvDateAndTime = findViewById(R.id.tvDateAndTime);
         dateTime = Calendar.getInstance();
+        almManager = getAlarmManager();
 
         // Extras from Intent
         Bundle extras = getIntent().getExtras();
         final ToDoItem toDoItem = (ToDoItem) extras.getSerializable("ToDoItem");
-        Toast.makeText(getApplicationContext(),"ToDoItem is " + toDoItem.getTitle(), Toast.LENGTH_LONG).show();
-
+        final int requestCode = (int) extras.getInt("requestCode");
 
         // Load values from DB if item exists already
-        if(toDoItem != null) {
+        if(requestCode == 1) {
             chkBoxDone.setChecked(toDoItem.getCompleted());
             etItemTitle.setText(toDoItem.getTitle());
             etItemContent.setText(toDoItem.getContent());
-            tvDateAndTime.setText(android.text.format.DateFormat.format("MM/dd/yyyy h:mm a", toDoItem.getDueDate()));
-        } else {
-            // No toDoItem exists
-            updateToDoItem(toDoItem, "Default To-Do Title", "Default To-Do Body", dateTime.getTimeInMillis(), false);
-            chkBoxDone.setChecked(false);
-            etItemTitle.setText("Default To-Do Title");
-            etItemContent.setText("Default To-Do Body");
-            tvDateAndTime.setText("Set Date Time");
+            if(toDoItem.getDueDate() != 0) {
+                tvDateAndTime.setText(android.text.format.DateFormat.format("MM/dd/yyyy h:mm a", toDoItem.getDueDate()));
+            }
         }
 
+        /**
+         * OnClickListener for the date and time display in the bottom left of this activity
+         * It will show the date picker and time picker and set the dateTime
+         */
         tvDateAndTime.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                showDatePickerDialog(view);
-                showTimePickerDialog(view);
-                tvDateAndTime.setText(android.text.format.DateFormat.format("MM/dd/yyyy h:mm a", dateTime.getTimeInMillis()));
+                showDatePickerDialog();
+                showTimePickerDialog();
             }
         });
 
+        /**
+         * OnClickListener for the btnSetAlarm
+         * Saves or updates the ToDoItem in the database
+         * Sets the alarm if there is one
+         */
         btnSetAlarm.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                if(tvDateAndTime.getText().toString().contains("/")) {
+                    // Wrap toDoItem in a bundle
+                    // https://stackoverflow.com/questions/40480355/pass-serializable-object-to-pending-intent/40515978#40515978
+                    Bundle bundle = new Bundle();
+                    Long dueDate = Long.valueOf(0);
+                    if(tvDateAndTime.getText() != "") {
+                        dueDate = dateTime.getTimeInMillis();
+                    }
+                    updateToDoItem(toDoItem, etItemTitle.getText().toString(), etItemContent.getText().toString(), dueDate, chkBoxDone.isChecked());
+                    bundle.putSerializable("ToDoItem", toDoItem);
 
-                // Set Alarm Service
-                if(Build.VERSION.SDK_INT >= 23) {
-                    almManager = view.getContext().getSystemService(AlarmManager.class);
+                    Toast.makeText(getApplicationContext(),"Alarm will go off at " + android.text.format.DateFormat.format("MM/dd/yyyy h:mm a", dateTime.getTimeInMillis()), Toast.LENGTH_SHORT).show();
+
+                    // Create Intent
+                    Intent alarmNotificationIntent = new Intent(view.getContext(), AlarmNotification.class);
+                    alarmNotificationIntent.putExtra("bundle", bundle);
+                    PendingIntent alarmIntent = PendingIntent.getBroadcast(view.getContext(), 42, alarmNotificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                    Log.d("AddCreateEditActivity", "Alarm set for " + android.text.format.DateFormat.format("MM/dd/yyyy h:mm a", dateTime.getTimeInMillis()));
+                    almManager.set(AlarmManager.RTC_WAKEUP, dateTime.getTimeInMillis(), alarmIntent);
                 } else {
-                    almManager = (AlarmManager) view.getContext().getSystemService(Context.ALARM_SERVICE);
+                    updateToDoItem(toDoItem, etItemTitle.getText().toString(), etItemContent.getText().toString(), (long) 0, chkBoxDone.isChecked());
                 }
-
-                // Wrap toDoItem in a bundle
-                // https://stackoverflow.com/questions/40480355/pass-serializable-object-to-pending-intent/40515978#40515978
-                Bundle bundle = new Bundle();
-                updateToDoItem(toDoItem, etItemTitle.getText().toString(), etItemContent.getText().toString(), dateTime.getTimeInMillis(), chkBoxDone.isChecked());
-                bundle.putSerializable("ToDoItem", toDoItem);
-
-                // Create Intent
-                Intent alarmNotificationIntent = new Intent(view.getContext(), AlarmNotification.class);
-                alarmNotificationIntent.putExtra("bundle", bundle);
-                PendingIntent alarmIntent = PendingIntent.getBroadcast(view.getContext(), UUID.randomUUID().hashCode(), alarmNotificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-                almManager.setExact(AlarmManager.RTC_WAKEUP, dateTime.getTimeInMillis(), alarmIntent);
 
                 // Finish the activity
                 Intent intent = new Intent();
@@ -115,22 +121,27 @@ public class AddCreateEditActivity extends AppCompatActivity {
             }
         });
 
-        chkBoxDone.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // TODO figure out if this needs to do anything, I don't believe that it does
-            }
-        });
     }
 
-//    @Override
-//    public boolean onCreateOptionsMenu(Menu menu) {
-//        return super.onCreateOptionsMenu(menu);
-//
-//        getMenuInflater().inflate(R.menu.);
-//        return true;
-//    }
+    /**
+     * Gets alarm manager based on the android version
+     * @return AlarmManager Service
+     */
+    public AlarmManager getAlarmManager() {
+        AlarmManager almManager;
 
+        // Set Alarm Service
+        if(Build.VERSION.SDK_INT >= 23) {
+            almManager = getApplicationContext().getSystemService(AlarmManager.class);
+        } else {
+            almManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        }
+        return almManager;
+    }
+
+    /**
+     * Handles what happens when the user presses the back button when in this activity screen
+     */
     @Override
     public void onBackPressed() {
         Intent intent = new Intent();
@@ -138,6 +149,14 @@ public class AddCreateEditActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * Updates the ToDoItem passed as a param based on values passed in
+     * @param toDoItem
+     * @param title
+     * @param content
+     * @param dueDate
+     * @param completed
+     */
     public void updateToDoItem(ToDoItem toDoItem, String title, String content, Long dueDate, Boolean completed) {
         if(title != null) {
             toDoItem.setTitle(title);
@@ -153,12 +172,30 @@ public class AddCreateEditActivity extends AppCompatActivity {
         }
     }
 
-    public void showTimePickerDialog(View v) {
-        DialogFragment timeFrag = new TimePickerFragment();
+    /**
+     * Shows the Time Picker Dialog and sets the dateTime
+     */
+    public void showTimePickerDialog() {
+        TimePickerFragment timeFrag = new TimePickerFragment();
+        timeFrag.setOnTimeSelectedListener(new TimePickerDialog.OnTimeSetListener() {
+            @Override
+            public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
+                dateTime.set(Calendar.HOUR, hourOfDay);
+                dateTime.set(Calendar.MINUTE, minute);
+                tvDateAndTime.setText(android.text.format.DateFormat.format("MM/dd/yyyy h:mm a", dateTime.getTimeInMillis()));
+            }
+        });
         timeFrag.show(getSupportFragmentManager(), "timePicker");
     }
 
-    public static class TimePickerFragment extends DialogFragment implements TimePickerDialog.OnTimeSetListener {
+    public static class TimePickerFragment extends DialogFragment {
+
+        TimePickerDialog.OnTimeSetListener mListener;
+
+        public TimePickerFragment() {
+            // Default constructor. Required
+        }
+
         @NonNull
         @Override
         public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
@@ -167,22 +204,40 @@ public class AddCreateEditActivity extends AppCompatActivity {
             int minute = c.get(Calendar.MINUTE);
 
             // Create a new instance of TimePickerDialog and return it
-            return new TimePickerDialog(getActivity(), this, hour, minute, android.text.format.DateFormat.is24HourFormat(getActivity()));
+            return new TimePickerDialog(getActivity(), mListener, hour, minute, android.text.format.DateFormat.is24HourFormat(getActivity()));
         }
 
-        @Override
-        public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
-            dateTime.add(Calendar.HOUR, hourOfDay);
-            dateTime.add(Calendar.MINUTE, minute);
+        public void setOnTimeSelectedListener(TimePickerDialog.OnTimeSetListener listener) {
+            mListener = listener;
         }
+
     }
 
-    public void showDatePickerDialog(View v) {
-        DialogFragment dateFrag = new DatePickerFragment();
+    /**
+     * Shows the Date Picker Dialog and sets the dateTime
+     */
+    public void showDatePickerDialog() {
+        DatePickerFragment dateFrag = new DatePickerFragment();
+        dateFrag.setOnDateSelectedListener(new DatePickerDialog.OnDateSetListener() {
+            @Override
+            public void onDateSet(DatePicker datePicker, int year, int month, int day) {
+                dateTime.set(Calendar.YEAR, year);
+                dateTime.set(Calendar.MONTH, month);
+                dateTime.set(Calendar.DATE, day);
+                tvDateAndTime.setText(android.text.format.DateFormat.format("MM/dd/yyyy h:mm a", dateTime.getTimeInMillis()));
+            }
+        });
         dateFrag.show(getSupportFragmentManager(), "datePicker");
     }
 
-    public static class DatePickerFragment extends DialogFragment implements DatePickerDialog.OnDateSetListener {
+    public static class DatePickerFragment extends DialogFragment {
+
+        DatePickerDialog.OnDateSetListener mListener;
+
+        public DatePickerFragment() {
+            // Default constructor. Required
+        }
+
         @NonNull
         @Override
         public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
@@ -192,16 +247,13 @@ public class AddCreateEditActivity extends AppCompatActivity {
             int day = c.get(Calendar.DAY_OF_MONTH);
 
             // Create a new instance of TimePickerDialog and return it
-            return new DatePickerDialog(getActivity(), this, year, month, day);
+            return new DatePickerDialog(getActivity(), mListener, year, month, day);
         }
 
-        @Override
-        public void onDateSet(DatePicker datePicker, int year, int month, int day) {
-            dateTime.add(Calendar.YEAR, year);
-            dateTime.add(Calendar.MONTH, month);
-            dateTime.add(Calendar.DATE, day);
-
+        public void setOnDateSelectedListener(DatePickerDialog.OnDateSetListener listener) {
+            mListener = listener;
         }
+
     }
 }
 

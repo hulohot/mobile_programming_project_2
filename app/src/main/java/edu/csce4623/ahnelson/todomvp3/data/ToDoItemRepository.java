@@ -94,6 +94,7 @@ public class ToDoItemRepository implements ToDoListDataSource {
         mAppExecutors.diskIO().execute(runnable);
     }
 
+
     /**
      * Not implemented yet
      * @param toDoItemId
@@ -103,6 +104,8 @@ public class ToDoItemRepository implements ToDoListDataSource {
     public void getToDoItem(@NonNull String toDoItemId, @NonNull GetToDoItemCallback callback) {
         Log.d("REPOSITORY","GetToDoItem");
     }
+
+
 
     /**
      * saveToDoItem runs contentProvider update in separate thread
@@ -150,4 +153,28 @@ public class ToDoItemRepository implements ToDoListDataSource {
         mAppExecutors.diskIO().execute(runnable);
 
     }
+
+    /**
+     * Deletes the ToDoItem matching the id from the SQLite DB
+     * @param id
+     */
+    @Override
+    public void deleteToDoItem(@NonNull final Long id) {
+            Log.d("REPOSITORY","DeleteToDoItem");
+            Runnable runnable = new Runnable(){
+                @Override
+                public void run() {
+                Uri uri = Uri.parse("content://" + ToDoProvider.AUTHORITY + "/" + ToDoProvider.TODOITEM_TABLE_NAME + "/" + id);
+                int isDeleted = mContext.getContentResolver().delete(uri, null, null);
+                if(isDeleted == 0) {
+                    Log.d("REPOSITORY","Not deleted");
+                } else {
+                    Log.d("REPOSITORY","Deleted");
+                }
+                }
+            };
+            mAppExecutors.diskIO().execute(runnable);
+    }
+
+
 }
